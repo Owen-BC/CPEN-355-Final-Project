@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+
+*.h5
+*.pkl
+*.npy
+/data/
+
+.DS_Store
