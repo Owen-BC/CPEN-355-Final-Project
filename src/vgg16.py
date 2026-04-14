@@ -22,10 +22,16 @@ class SimpleCNN(nn.Module):
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3,3), padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3,3), padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2),
 
             # Image is 16 x 16 x 128
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(3,3), padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(3,3), padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(3,3), padding=1),
@@ -40,20 +46,31 @@ class SimpleCNN(nn.Module):
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(3,3), padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(3,3), padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2),
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=4096, out_features=1024),
+            nn.Linear(in_features=4096, out_features=2048),
+            nn.BatchNorm1d(2048),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features=2048, out_features=1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=1024, out_features=256),
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features=1024, out_features=512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features=512, out_features=256),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Dropout(p=0.5),
+            nn.Dropout(p=0.3),
             nn.Linear(in_features=256, out_features=num_classes),
+            # nn.Softmax(dim=1) # if we are using cross entropy loss, uncomment, already done in that function
         )
 
     def forward(self, x):
@@ -73,7 +90,6 @@ def create_dataloader(batch_size=32, shuffle=True, train=True):
     image_trans = ''
     if train:
         image_trans = transforms.Compose([
-            # teach the model that the object is not always centered?
             transforms.RandomCrop(32,4),
             # taken from the tutoral3 colab document
             transforms.RandomAffine(degrees=10, translate=(0.05, 0.05)),
@@ -96,8 +112,9 @@ def create_dataloader(batch_size=32, shuffle=True, train=True):
 
 
 
-def train_model(model, epochs=10, batch_size=64, lr=1e-2):
-
+def train_model(model, epochs=60, batch_size=64, lr=1e-2):
+    model_dir = Path("models")
+    model_path = model_dir / "cnn.pt"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     loader = create_dataloader(batch_size=batch_size, shuffle=True)
@@ -133,6 +150,9 @@ def train_model(model, epochs=10, batch_size=64, lr=1e-2):
         print(f"Training Accuracy: {(correct / total):.4f}")
         print(f"Time: {dt:.1f}")
         print("-------------------------------------")
+        if epoch % 5 == 0:
+          torch.save(model.state_dict(), model_path)
+    # print(loss_list)
     plt.plot(range(1, epochs + 1), loss_list)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
@@ -186,18 +206,20 @@ def main():
 
     with torch.no_grad():
       torch.cuda.empty_cache()
-    
+
     if train_model_flag:
         failed_training = True
         while(failed_training):
             print("Begin training the model")
             model = neural_network_model()
+            if model_path.exists():
+                model.load_state_dict(torch.load(model_path, map_location="cpu"))
             model = train_model(model)
             result = test_model(model, "numbers_dataset/test")
             failed_training = result < 0.90
         torch.save(model.state_dict(), model_path)
 
-        
+
 
 
     # loaded_model = neural_network_model()
