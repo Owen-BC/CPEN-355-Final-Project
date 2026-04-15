@@ -73,7 +73,6 @@ class VGG16CUSTOM(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.3),
             nn.Linear(in_features=256, out_features=num_classes),
-            # nn.Softmax(dim=1) # if we are using cross entropy loss, uncomment, already done in that function
         )
 
     def forward(self, x):
