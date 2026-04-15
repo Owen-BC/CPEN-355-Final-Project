@@ -9,8 +9,11 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 NUM_CLASSES = 10
+# numbers from https://discuss.pytorch.org/t/how-to-calculate-the-mean-and-the-std-of-cifar10-data/115222
+NORM_MEAN = (0.491, 0.482, 0.446)
+NORM_STD  = (0.247, 0.243, 0.261)
 
-class SimpleCNN(nn.Module):
+class VGG16CUSTOM(nn.Module):
 
     def __init__(self, num_classes=NUM_CLASSES):
         super().__init__()
@@ -80,13 +83,10 @@ class SimpleCNN(nn.Module):
 
 
 def neural_network_model():
-    return SimpleCNN()
+    return VGG16CUSTOM()
 
 
 def create_dataloader(batch_size=32, shuffle=True, train=True):
-    # numbers from https://discuss.pytorch.org/t/how-to-calculate-the-mean-and-the-std-of-cifar10-data/115222
-    NORM_MEAN = (0.491, 0.482, 0.446)
-    NORM_STD  = (0.247, 0.243, 0.261)
     image_trans = ''
     if train:
         image_trans = transforms.Compose([
@@ -113,8 +113,6 @@ def create_dataloader(batch_size=32, shuffle=True, train=True):
 
 
 def train_model(model, epochs=60, batch_size=64, lr=1e-2):
-    model_dir = Path("models")
-    model_path = model_dir / "cnn.pt"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     loader = create_dataloader(batch_size=batch_size, shuffle=True)
@@ -150,9 +148,6 @@ def train_model(model, epochs=60, batch_size=64, lr=1e-2):
         print(f"Training Accuracy: {(correct / total):.4f}")
         print(f"Time: {dt:.1f}")
         print("-------------------------------------")
-        if epoch % 5 == 0:
-          torch.save(model.state_dict(), model_path)
-    # print(loss_list)
     plt.plot(range(1, epochs + 1), loss_list)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
@@ -165,7 +160,7 @@ def train_model(model, epochs=60, batch_size=64, lr=1e-2):
     return model
 
 
-def test_model(model, data_dir="numbers_dataset/test", batch_size=32):
+def test_model(model, batch_size=32):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     model.eval()
@@ -183,7 +178,7 @@ def test_model(model, data_dir="numbers_dataset/test", batch_size=32):
             total += images.size(0)
 
     accuracy = correct / max(1, total)
-    print(f"{data_dir} Test accuracy: {accuracy:.4f}")
+    print(f"Test accuracy: {accuracy:.4f}")
     return accuracy
 
 
@@ -193,7 +188,7 @@ def main():
     parser.add_argument(
         "--train-model",
         type=str,
-        default="True",
+        default="False",
         help="Set to True to train the model before testing.",
     )
     args, unknown = parser.parse_known_args()
@@ -208,43 +203,15 @@ def main():
       torch.cuda.empty_cache()
 
     if train_model_flag:
-        failed_training = True
-        while(failed_training):
-            print("Begin training the model")
-            model = neural_network_model()
-            if model_path.exists():
-                model.load_state_dict(torch.load(model_path, map_location="cpu"))
-            model = train_model(model)
-            result = test_model(model, "numbers_dataset/test")
-            failed_training = result < 0.90
+        print("Begin training the model")
+        model = neural_network_model()
+        model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        model = train_model(model)
         torch.save(model.state_dict(), model_path)
 
-
-
-
-    # loaded_model = neural_network_model()
-    # loaded_model.load_state_dict(torch.load(model_path, map_location="cpu"))
-    # results = list()
-    # test_model(loaded_model, "numbers_dataset/test")
-    # test_model(loaded_model, "numbers_dataset/distribution_shift")
-    # results.append(test_model(loaded_model, "numbers_dataset/D1"))
-    # results.append(test_model(loaded_model, "numbers_dataset/D2"))
-    # results.append(test_model(loaded_model, "numbers_dataset/D3"))
-    # results.append(test_model(loaded_model, "numbers_dataset/D4"))
-    # results.append(test_model(loaded_model, "numbers_dataset/D5"))
-    # results.append(test_model(loaded_model, "numbers_dataset/D6"))
-
-    # x_axis_labels = ['D1', 'D2', 'D3', 'D4', 'D5', 'D6']
-
-    # plt.bar(x_axis_labels, results)
-    # plt.xlabel("Dataset")
-    # plt.ylabel("Accuracy of Model Classification")
-    # plt.title("Accuracy of Model Classification by Dataset")
-
-    # output_path = Path("Figures") / "distribution shift.png"
-    # output_path.parent.mkdir(parents=True, exist_ok=True)
-    # plt.savefig(output_path, dpi=150)
-
+    loaded_model = neural_network_model()
+    loaded_model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    test_model(model)
 
 if __name__ == "__main__":
     main()
